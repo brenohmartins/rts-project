@@ -1,14 +1,16 @@
-# Automated Manufacturing Cell Simulation
+# Simulação de uma Célula de Manufatura Automatizada
 
-A multi-threaded C simulation of an industrial manufacturing cell using **POSIX Semaphores** and **Pthreads**. The project models two machines, a shared transport robot, and a finite buffer.
+Este projeto apresenta a simulação de uma célula de manufatura industrial automatizada, desenvolvida em linguagem C, utilizando **Pthreads** e **Semáforos POSIX** para modelar concorrência, sincronização e compartilhamento de recursos. O sistema representa o funcionamento coordenado de duas máquinas de processamento, um robô industrial compartilhado e um buffer de saída com capacidade finita.
 
-## 🛠 System Overview
+O objetivo principal da simulação é reproduzir os desafios típicos de sistemas industriais concorrentes, como a coordenação de tarefas paralelas, o controle de acesso a recursos compartilhados e a prevenção de situações indesejadas como bloqueios (deadlock) e violação de capacidade (overflow).
 
-The system consists of three main components operating in a synchronized pipeline:
+## Visão Geral do Sistema
 
-1. **Machines (M1 & M2):** Independent units that process raw materials. They signal the robot when a piece is ready and wait for it to be collected before starting the next cycle.
-2. **Industrial Robot:** It monitors both machines, retrieves finished pieces, and transports them to the output buffer.
-3. **Output Buffer (Conveyor):** A storage area with a fixed capacity (default: 2 slots). An external agent removes pieces from this buffer at random intervals.
+A célula de manufatura é composta por três componentes principais, que operam de forma concorrente e sincronizada, formando um pipeline de produção:
+
+1. **Máquinas de processamento (M1 & M2):** As máquinas são unidades independentes responsáveis pelo processamento da matéria-prima. Cada máquina executa seu ciclo de trabalho de forma autônoma e, ao finalizar o processamento, sinaliza ao robô que uma preça está pronta para ser retirada. Até o processo ser finalizado, a máquina permanece bloqueada até que o robô realize a coleta da peça, garantindo que um novo ciclo de produção só seja iniciado após a liberação adequada da peça.
+2. **Robô Industrial:** O robô monitora continuamente o estado das máquinas, identifica quando uma peça está disponível e realiza a retirada desta. Em seguida, ele transporta a peça até o buffer de saída. Como é um recurso compartilhado, o robô pode atender apenas uma máquina por vez e possui capacidade unitária de transporte.
+3. **Buffer de saída:** Representa uma esteira ou área de armazenamento temporário destinada às peças finalizadas. Esse buffer possui capacidade limitada, definida como dois slots, de modo a evidenciar possíveis problemas de saturação do sistema. As peças depositadas no buffer são removidas por um agente externo, modelado como um processo independente que atua em intervalos de tempo aleatórios, liberando espaço para novas peças.
 
 ## 🚀 Usage
 
