@@ -80,4 +80,45 @@ Esse é um exemplo obtido ao rodar o código:
 
 ### Modelo 2 - 'script.c'
 
+O segundo modelo adota uma abordagem com controle rigoroso de capacidade do buffer e sincronização detalhada entre máquinas, robô e buffer. Nesta implementação, o buffer não é representado por uma estrutura de dados física, mas sim por um contador compartilhado, que indica o número de peças atualmente armazenadas.
+
+As máquinas são representadas pelas funções 'feed_machine_x', os semáforos 'Mx_empty' garantem que cada máquina só processe uma peça por vez e, ao finalizar o rocessamento, as máquinas sinalizam a disponibilidade da peça por meio dos semáforos 'Mx_ready'. A máquinas permanecem bloqueadas até que o robô retire a peça.
+
+O robô é implementado pela função get_piece_from_machines e mantém um estado interno 'piece_on_robot' que indica se está transportando uma peça. Antes de retirar uma peça de qualquer máquina, o robô verifica se existe espaço disponível no buffer, 'B_slots' e garante que não está carregando nenhuma peça, assegurando que nenhuma peça seja retirada sem garantia de armazenamento.
+
+O buffer é controlado pelos semáforos 'B_items', que indica a quantidade de itens disponíveis, 'B_slots', que indica a quantidade de espaços livres e 'B_count'. A função 'retrive_from_buffer' simula a remoção externa das peças.
+
+#### Compilar e Executar
+
+Abra seu terminal no diretório do projeto e execute:
+
+```bash
+gcc -o script script.c -lpthread && ./script
+```
+
+#### Interpretando a saída
+
+O programa registra eventos em tempo real no console, como mostrado no exemplo abaixo, obtido ao executar o código:
+
+```
+Máquina 1 está processando a peça...
+Máquina 2 está processando a peça...
+Peça na máquina 2 está pronta, aguardando robô...
+Peça na máquina 1 está pronta, aguardando robô...
+O robô móvel pegou a peça da máquina 2
+Máquina 2 está processando a peça...
+O robô móvel depositou peça na esteira
+Peça na máquina 2 está pronta, aguardando robô...
+O robô móvel pegou a peça da máquina 1
+Máquina 1 está processando a peça...
+Item removido da esteira
+Peça na máquina 1 está pronta, aguardando robô...
+O robô móvel depositou peça na esteira
+O robô móvel pegou a peça da máquina 1
+Máquina 1 está processando a peça...
+Peça na máquina 1 está pronta, aguardando robô...
+Item removido da esteira
+
+```
+
 ---
