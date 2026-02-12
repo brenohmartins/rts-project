@@ -12,31 +12,44 @@ A célula de manufatura é composta por três componentes principais, que operam
 2. **Robô Industrial:** O robô monitora continuamente o estado das máquinas, identifica quando uma peça está disponível e realiza a retirada desta. Em seguida, ele transporta a peça até o buffer de saída. Como é um recurso compartilhado, o robô pode atender apenas uma máquina por vez e possui capacidade unitária de transporte.
 3. **Buffer de saída:** Representa uma esteira ou área de armazenamento temporário destinada às peças finalizadas. Esse buffer possui capacidade limitada, definida como dois slots, de modo a evidenciar possíveis problemas de saturação do sistema. As peças depositadas no buffer são removidas por um agente externo, modelado como um processo independente que atua em intervalos de tempo aleatórios, liberando espaço para novas peças.
 
-## 🚀 Usage
+## Códigos e uso
 
-### Prerequisites
+Para representar o funcionamento da célula de manufatura automatizada, foram desenvolvidas duas implementações distintas em linguagem C, ambas baseadas em programação concorrente com Pthreads e Semáforos POSIX. Embora os dois códigos modelam o mesmo sistema físico, cada implementação adota uma estratégia de sincronização diferente.
 
-* A Linux environment (or WSL on Windows).
-* `gcc` compiler.
-* `pthread` library (standard on most Linux distributions).
+### Pré - requisitos
 
-### Compile and Run
+* Ambiente Linux (ou WSL no Windows).
+* Compilador `gcc` .
+* Biblioteca `pthread` (padrão na maioria das distribuições Linux).
 
-Open your terminal in the project directory and run:
+
+### Modelo 1 - 'script.c'
+
+O primeiro código implementa a célula de manufatura utilizando um modelo fortemente baseado em eventos e sinalizações diretas entre os componentes do sistema. Cada elemento físico (máquinas, robô e buffer) é representado por uma thread independente, e a comunicação entre elas é realizada por meio de semáforos que modelam estados e eventos do sistema. A ordem lógica de operação segue o fluxo: Máquina -> Robô -> Buffer -> Remoção Externa.
+
+As máquinas M1 e M2 são representadas pelas funções 'maquina1' e 'maquina2'. Cada máquina opera em um laço infinito, alternando entre os estados de processamento e espera pela retirada da peça. O semáforo 'mx_start' representa a autorização para o início de um novo ciclo de produção, já o término do processamento é sinalizado por meio do semáforo mx_done, indicando que ela pode ser coletada pelo robô. Por fim, a máquina fica impossibilitada de iniciar um novo ciclo até que o robô retire a peça.
+
+O robô é representado pela função 'robo_mov' e modela o robô de capacidade unitária, controlada pelo semáforo 'robot'. O comportamento do robô segue os passos: Aguarda estar livre para transporte -> Verifica se alguma máquina possui peça pronta ('mx_done'), retira a peça da máquina, aguarda a existencia de espaço livre no buffer ('vazio'), deposita a peça no buffer e retorna ao estado livre.
+
+Por fim, para modelagem do buffer de saída, são utilizados os semáforos 'vazio', 'cheio' e 'mutex', que representam o número de slots disponíveis no buffer. A função 'remove_buff' representa um agente externo que remove as peças em intervalos aleatórios.
+
+#### Compilar e Executar
+
+Abra seu terminal no diretório do projeto e execute:
 
 ```bash
 gcc -o rts rts.c -lpthread && ./rts
 ```
 
-### Interpreting the Output
+#### Interpretando a saída
 
-The program logs real-time events to the console:
+O programa registra eventos em tempo real no console:
 
-* `[MACHINE X] Processing...`: Machine is busy.
-* `[ROBOT] Retrieved...`: Robot has moved a piece.
-* `[BUFFER] Current items: X`: Real-time status of the output storage.
-
-This is an example obtained by running the code:
+* `[MACHINE X] Processing...`: Máquina está cheia
+* `[ROBOT] Retrieved...`: Robô moveu a peça.
+* `[BUFFER] Current items: X`: Status em tempo real do armazenamento de saída.
+  
+Esse é um exemplo obtido ao rodar o código:
 ```
 [MACHINE 2] Processing Piece 1...
 [ROBOT] No pieces available! Waiting...
@@ -64,5 +77,7 @@ This is an example obtained by running the code:
 [ROBOT] No pieces available! Waiting...
 
 ```
+
+### Modelo 2 - 'rts.c'
 
 ---
