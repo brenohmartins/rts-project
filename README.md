@@ -14,7 +14,7 @@ A célula de manufatura é composta por três componentes principais, que operam
 
 ## Códigos e uso
 
-Para representar o funcionamento da célula de manufatura automatizada, foram desenvolvidas duas implementações distintas em linguagem C, ambas baseadas em programação concorrente com Pthreads e Semáforos POSIX. Embora os dois códigos modelam o mesmo sistema físico, cada implementação adota uma estratégia de sincronização diferente.
+O código implementa a simulação concorrente de uma célula de manufatura automatizada utilizando linguagem C, com POSIX Threads (pthreads) e semáforos POSIX (sem_t). O sistema é composto por duas máquinas produtoras, um robô responsável pelo transporte das peças, um buffer de saída com capacidade limitada e um agente externo que realiza a remoção das peças armazenadas. A sincronização entre esses componentes é feita por meio de semáforos.
 
 ### Pré - requisitos
 
@@ -23,15 +23,16 @@ Para representar o funcionamento da célula de manufatura automatizada, foram de
 * Biblioteca `pthread` (padrão na maioria das distribuições Linux).
 
 
-### Modelo 1 - 'rts.c'
+### Modelo 'rts.c'
 
-O primeiro código implementa a célula de manufatura utilizando um modelo fortemente baseado em eventos e sinalizações diretas entre os componentes do sistema. Cada elemento físico (máquinas, robô e buffer) é representado por uma thread independente, e a comunicação entre elas é realizada por meio de semáforos que modelam estados e eventos do sistema. A ordem lógica de operação segue o fluxo: Máquina -> Robô -> Buffer -> Remoção Externa.
+Cada máquina possui dois semáforos: um que indica se está livre para iniciar o processamento (M1_empty e M2_empty) e outro que sinaliza que a peça foi finalizada (M1_ready e M2_ready). Desse modo, cada máquina produz apenas uma peça por vez, aguardando o robô realizar a coleta antes de iniciar um novo ciclo.
 
-As máquinas M1 e M2 são representadas pelas funções 'maquina1' e 'maquina2'. Cada máquina opera em um laço infinito, alternando entre os estados de processamento e espera pela retirada da peça. O semáforo 'mx_start' representa a autorização para o início de um novo ciclo de produção, já o término do processamento é sinalizado por meio do semáforo mx_done, indicando que ela pode ser coletada pelo robô. Por fim, a máquina fica impossibilitada de iniciar um novo ciclo até que o robô retire a peça.
+O buffer possui capacidade limitada definida pela constante 'BUFFER_SIZE', com valor igual a 2. Para o controle dele, são utilizados três semáforos: 'B_slots', 'B_items' e 'B_count'. O semáforo 'B_slots' é inicializado com o valor correspondente à capacidade do buffer e controla a quantidade de espaços livres disponíveis. O semáforo 'B_items' é inicializado com valor 0 e representa a quantidade de peças prontas para remoção. Já o semáforo  'B_count' atua como um mutex, sendo inicializado com valor 1 e utilizado para proteger a variável compartilhada buffer_count, que armazena a quantidade atual de itens no buffer. As variáveis P1 e P2 identificam as peças produzidas por cada máquina, sendo incrementadas de dois em dois para diferenciar a origem das peças. A variável buffer_count representa a quantidade atual de itens armazenados.
 
-O robô é representado pela função 'robo_mov' e modela o robô de capacidade unitária, controlada pelo semáforo 'robot'. O comportamento do robô segue os passos: Aguarda estar livre para transporte -> Verifica se alguma máquina possui peça pronta ('mx_done'), retira a peça da máquina, aguarda a existencia de espaço livre no buffer ('vazio'), deposita a peça no buffer e retorna ao estado livre.
+As máquinas executam em laço contínuo, simulando o processamento com tempo aleatório e sinalizando quando a peça está pronta. Em seguida, permanecem bloqueadas até que o robô libere novamente o semáforo de disponibilidade. O robô monitora ambas as máquinas utilizando sem_trywait, verificando se há peças prontas sem bloquear sua execução. Ao encontrar uma peça, ele primeiro garante que exista espaço no buffer por meio de sem_wait(B_slots), evitando overflow. Em seguida, coleta a peça, libera a máquina correspondente, incrementa o contador do buffer dentro de uma região crítica protegida por B_count e sinaliza a disponibilidade do item com sem_post(B_items).
 
-Por fim, para modelagem do buffer de saída, são utilizados os semáforos 'vazio', 'cheio' e 'mutex', que representam o número de slots disponíveis no buffer. A função 'remove_buff' representa um agente externo que remove as peças em intervalos aleatórios.
+O agente externo aguarda a existência de itens no buffer por meio de sem_wait(B_items). Quando há peça disponível, simula o tempo de remoção, decrementa buffer_count em região protegida e libera um espaço no buffer com sem_post(B_slots). Assim, essa aplicação garante uma sincronização adequada entre robô, máquinas e buffer de saída. 
+
 
 #### Compilar e Executar
 
@@ -75,49 +76,6 @@ Esse é um exemplo obtido ao rodar o código:
 [BUFFER] Piece removed from buffer. Current items: 1
 [BUFFER] Waiting for external agent...
 [ROBOT] No pieces available! Waiting...
-
-```
-
-### Modelo 2 - 'script.c'
-
-O segundo modelo adota uma abordagem com controle rigoroso de capacidade do buffer e sincronização detalhada entre máquinas, robô e buffer. Nesta implementação, o buffer não é representado por uma estrutura de dados física, mas sim por um contador compartilhado, que indica o número de peças atualmente armazenadas.
-
-As máquinas são representadas pelas funções 'feed_machine_x', os semáforos 'Mx_empty' garantem que cada máquina só processe uma peça por vez e, ao finalizar o rocessamento, as máquinas sinalizam a disponibilidade da peça por meio dos semáforos 'Mx_ready'. A máquinas permanecem bloqueadas até que o robô retire a peça.
-
-O robô é implementado pela função get_piece_from_machines e mantém um estado interno 'piece_on_robot' que indica se está transportando uma peça. Antes de retirar uma peça de qualquer máquina, o robô verifica se existe espaço disponível no buffer, 'B_slots' e garante que não está carregando nenhuma peça, assegurando que nenhuma peça seja retirada sem garantia de armazenamento.
-
-O buffer é controlado pelos semáforos 'B_items', que indica a quantidade de itens disponíveis, 'B_slots', que indica a quantidade de espaços livres e 'B_count'. A função 'retrive_from_buffer' simula a remoção externa das peças.
-
-#### Compilar e Executar
-
-Abra seu terminal no diretório do projeto e execute:
-
-```bash
-gcc -o script script.c -lpthread && ./script
-```
-
-#### Interpretando a saída
-
-O programa registra eventos em tempo real no console, como mostrado no exemplo abaixo, obtido ao executar o código:
-
-```
-Máquina 1 está processando a peça...
-Máquina 2 está processando a peça...
-Peça na máquina 2 está pronta, aguardando robô...
-Peça na máquina 1 está pronta, aguardando robô...
-O robô móvel pegou a peça da máquina 2
-Máquina 2 está processando a peça...
-O robô móvel depositou peça na esteira
-Peça na máquina 2 está pronta, aguardando robô...
-O robô móvel pegou a peça da máquina 1
-Máquina 1 está processando a peça...
-Item removido da esteira
-Peça na máquina 1 está pronta, aguardando robô...
-O robô móvel depositou peça na esteira
-O robô móvel pegou a peça da máquina 1
-Máquina 1 está processando a peça...
-Peça na máquina 1 está pronta, aguardando robô...
-Item removido da esteira
 
 ```
 
