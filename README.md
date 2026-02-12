@@ -23,7 +23,7 @@ Para representar o funcionamento da célula de manufatura automatizada, foram de
 * Biblioteca `pthread` (padrão na maioria das distribuições Linux).
 
 
-### Modelo 1 - 'script.c'
+### Modelo 1 - 'rts.c'
 
 O primeiro código implementa a célula de manufatura utilizando um modelo fortemente baseado em eventos e sinalizações diretas entre os componentes do sistema. Cada elemento físico (máquinas, robô e buffer) é representado por uma thread independente, e a comunicação entre elas é realizada por meio de semáforos que modelam estados e eventos do sistema. A ordem lógica de operação segue o fluxo: Máquina -> Robô -> Buffer -> Remoção Externa.
 
@@ -78,6 +78,6 @@ Esse é um exemplo obtido ao rodar o código:
 
 ```
 
-### Modelo 2 - 'rts.c'
+### Modelo 2 - 'script.c'
 
 ---
