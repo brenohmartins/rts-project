@@ -8,22 +8,22 @@
 #define BUFFER_SIZE 2
 #define NUM_MACH 2
 
-typedef struct{
+typedef struct {
     int id;
     sem_t ready, empty;
     pthread_t thread;
 } Machine;
 Machine machines[NUM_MACH];
 
-typedef struct{
+typedef struct {
     int n_items;
     pthread_t thread;
     sem_t items, slots, count;
 } Buffer;
 Buffer buffer;
 
-typedef struct{
-    sem_t ready;
+typedef struct {
+    sem_t call;
     pthread_t thread;
 } Robot;
 Robot robot; 
@@ -37,47 +37,46 @@ void *feed_machine(void *arg) {
         usleep(rand() % 1000001);
         printf("[MACHINE %d] Waiting robot...\n", machine->id);
         sem_post(&machine->ready);
-        sem_post(&robot.ready);
+        sem_post(&robot.call);
     }
 }
 
 void *get_piece_from_machines(void *arg) {
     while (1) {
-        sem_wait(&robot.ready);
+        sem_wait(&robot.call);
   
-        int got_piece = 0;
-        for(int i = 0; i < NUM_MACH && !got_piece; i++) {
+        int piece_retrieved = 0;
+        for(int i = 0; i < NUM_MACH && !piece_retrieved; i++) {
             if(sem_trywait(&machines[i].ready) == 0) {
                 printf("[ROBOT] Retrieved piece from Machine %d\n", machines[i].id);
                 sem_post(&machines[i].empty);
-                got_piece = 1;
+                piece_retrieved = 1;
+                break;
             }
         }
         
-        if(got_piece) {
-            sem_wait(&buffer.slots);
-            sem_wait(&buffer.count);
-            buffer.n_items++;
-            printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer.n_items);
-            sem_post(&buffer.count);
-            sem_post(&buffer.items);
-        }
+        sem_wait(&buffer.slots);
+        sem_wait(&buffer.count);
+        buffer.n_items++;
+        printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer.n_items);
+        sem_post(&buffer.count);
+        sem_post(&buffer.items);
     }
 }
 
 void *retrive_from_buffer(void *arg) {
     while (1) {
-        sem_wait(&buffer.items); // Wait for an item to be on buffer
+        sem_wait(&buffer.items);
         
         printf("[BUFFER] Waiting for external agent...\n");
         usleep(rand() % 1000001);
         
-        sem_wait(&buffer.count); // Lock counter
+        sem_wait(&buffer.count);
         buffer.n_items--;
         printf("[BUFFER] Piece removed from buffer. Current items: %d\n", buffer.n_items);
-        sem_post(&buffer.count); // Unlock counter
+        sem_post(&buffer.count);
         
-        sem_post(&buffer.slots); // Signal that a slot on the buffer is free
+        sem_post(&buffer.slots);
     }
 }
 
@@ -93,7 +92,7 @@ void create_machines() {
 }
 
 void create_robot() {
-    sem_init(&robot.ready, 0, 0);
+    sem_init(&robot.call, 0, 0);
     pthread_create(&robot.thread, NULL, get_piece_from_machines, NULL);
 }
 
