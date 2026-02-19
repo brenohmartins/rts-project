@@ -16,7 +16,7 @@ A célula de manufatura é composta por três componentes principais, que operam
 
 O código implementa a simulação concorrente de uma célula de manufatura automatizada utilizando linguagem C, com POSIX Threads (pthreads) e semáforos POSIX (sem_t). O sistema é composto por duas máquinas produtoras, um robô responsável pelo transporte das peças, um buffer de saída com capacidade limitada e um agente externo que realiza a remoção das peças armazenadas. A sincronização entre esses componentes é feita por meio de semáforos.
 
-### Pré - requisitos
+### Pré-requisitos
 
 * Ambiente Linux (ou WSL no Windows).
 * Compilador `gcc` .
@@ -93,5 +93,9 @@ Abaixo, estão os diagramas de estados referentes aos componentes do sistema: as
 <div align = "center">
 <img src = "https://github.com/user-attachments/assets/5582ef57-cf72-4f67-91f7-67b529f4b586" width = "500px" />
 </div>
+
+#### Vídeo Explicativo
+
+Acesse o link abaixo para entender o funcionamento do sistema: https://www.youtube.com/watch?v=45e65I-3E7I
 
 ---
