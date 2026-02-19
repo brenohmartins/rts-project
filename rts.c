@@ -16,7 +16,7 @@ typedef struct{
 Machine machines[NUM_MACH];
 
 typedef struct{
-    int itens;
+    int n_items;
     pthread_t thread;
     sem_t items, slots, count;
 } Buffer;
@@ -56,8 +56,8 @@ void *get_piece_from_machines(void *arg) {
         if(got_piece) {
             sem_wait(&buffer.slots);
             sem_wait(&buffer.count);
-            buffer.itens++;
-            printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer.itens);
+            buffer.n_items++;
+            printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer.n_items);
             sem_post(&buffer.count);
             sem_post(&buffer.items);
         }
@@ -74,8 +74,8 @@ void *retrive_from_buffer(void *arg) {
         usleep(rand() % 1000001);
         
         sem_wait(&buffer.count); // Lock counter
-        buffer.itens--;
-        printf("[BUFFER] Piece removed from buffer. Current items: %d\n", buffer.itens);
+        buffer.n_items--;
+        printf("[BUFFER] Piece removed from buffer. Current items: %d\n", buffer.n_items);
         sem_post(&buffer.count); // Unlock counter
         
         sem_post(&buffer.slots); // Signal that a slot on the buffer is free
