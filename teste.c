@@ -19,7 +19,7 @@ pthread_t machine_threads[NUM_MAQS];  // Array to store machine threads
 
 sem_t B_items, B_slots;
 sem_t B_count;
-sem_t robot;  // Removed empty, full, mutex as they're not used
+sem_t robot;  
 
 // Shared resources
 int buffer_count = 0; // The counter replacing the array
@@ -37,8 +37,8 @@ void *machine(void *arg){
     }
 }
 
-// function to create all machines - FIXED return type
-void create_machines(){  // Changed from void* to void
+// function to create all machines
+void create_machines(){
     for (int i = 0; i < NUM_MAQS; i++){
         machines[i].id = i + 1;
         sem_init(&machines[i].start, 0, 0);
@@ -81,7 +81,7 @@ void *retrive_from_buffer(void *arg) {
         sem_wait(&B_items); // Wait for an item to be on buffer
         
         printf("[BUFFER] External agent preparing to remove piece...\n");
-        usleep(rand() % 1000001);  // 0.5 a 1.5 segundos (mais realista)
+        usleep(rand() % 1000001); 
         
         sem_wait(&B_count); // Lock counter
         if(buffer_count > 0) {  // Safety check
@@ -130,4 +130,5 @@ int main() {
     }
     
     return 0;
+
 }
