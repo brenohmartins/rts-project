@@ -10,35 +10,39 @@
 
 typedef struct{
     int id;
-    sem_t ready;
-    sem_t empty;
+    sem_t ready, empty;
+    pthread_t thread;
 } Machine;
-
 Machine machines[NUM_MACH];
-pthread_t machine_threads[NUM_MACH];
-pthread_t robot_t, buffer_t;
 
-sem_t robot;
-sem_t B_items, B_slots;
-sem_t B_count;
+typedef struct{
+    int itens;
+    pthread_t thread;
+    sem_t items, slots, count;
+} Buffer;
+Buffer buffer;
 
-int buffer_count = 0;
+typedef struct{
+    sem_t ready;
+    pthread_t thread;
+} Robot;
+Robot robot; 
 
 void *feed_machine(void *arg) {
-    Machine *m = (Machine *)arg;
+    Machine *machine = (Machine *)arg;
     
     while(1) {
-        sem_wait(&m->empty);
-        printf("[MACHINE %d] Processing...\n", m->id);
+        sem_wait(&machine->empty);
+        printf("[MACHINE %d] Processing...\n", machine->id);
         usleep(rand() % 1000001);
-        printf("[MACHINE %d] Waiting robot...\n", m->id);
-        sem_post(&m->ready);
+        printf("[MACHINE %d] Waiting robot...\n", machine->id);
+        sem_post(&machine->ready);
     }
 }
 
 void *get_piece_from_machines(void *arg) {
     while (1) {
-        sem_wait(&robot);
+        sem_wait(&robot.ready);
   
         int got_piece = 0;
         for(int i = 0; i < NUM_MACH && !got_piece; i++) {
@@ -50,31 +54,31 @@ void *get_piece_from_machines(void *arg) {
         }
         
         if(got_piece) {
-            sem_wait(&B_slots);
-            sem_wait(&B_count);
-            buffer_count++;
-            printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer_count);
-            sem_post(&B_count);
-            sem_post(&B_items);
+            sem_wait(&buffer.slots);
+            sem_wait(&buffer.count);
+            buffer.itens++;
+            printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer.itens);
+            sem_post(&buffer.count);
+            sem_post(&buffer.items);
         }
         
-        sem_post(&robot);
+        sem_post(&robot.ready);
     }
 }
 
 void *retrive_from_buffer(void *arg) {
     while (1) {
-        sem_wait(&B_items); // Wait for an item to be on buffer
+        sem_wait(&buffer.items); // Wait for an item to be on buffer
         
         printf("[BUFFER] Waiting for external agent...\n");
         usleep(rand() % 1000001);
         
-        sem_wait(&B_count); // Lock counter
-        buffer_count--;
-        printf("[BUFFER] Piece removed from buffer. Current items: %d\n", buffer_count);
-        sem_post(&B_count); // Unlock counter
+        sem_wait(&buffer.count); // Lock counter
+        buffer.itens--;
+        printf("[BUFFER] Piece removed from buffer. Current items: %d\n", buffer.itens);
+        sem_post(&buffer.count); // Unlock counter
         
-        sem_post(&B_slots); // Signal that a slot on the buffer is free
+        sem_post(&buffer.slots); // Signal that a slot on the buffer is free
     }
 }
 
@@ -82,38 +86,37 @@ void create_machines() {
     for (int i = 0; i < NUM_MACH; i++){
         machines[i].id = i;
 
-        // Allow only 1 piece per machine
         sem_init(&machines[i].ready, 0, 0);
         sem_init(&machines[i].empty, 0, 1); 
 
-        pthread_create(&machine_threads[i], NULL, feed_machine, &machines[i]);
+        pthread_create(&machines[i].thread, NULL, feed_machine, &machines[i]);
     }
 }
 
 void create_robot() {
-    sem_init(&robot, 0, 1);
-    pthread_create(&robot_t, NULL, get_piece_from_machines, NULL);
+    sem_init(&robot.ready, 0, 1);
+    pthread_create(&robot.thread, NULL, get_piece_from_machines, NULL);
 }
 
 void create_buffer() {
-    sem_init(&B_items, 0, 0);  
-    sem_init(&B_slots, 0, BUFFER_SIZE);
-    sem_init(&B_count, 0, 1);
-    pthread_create(&buffer_t, NULL, retrive_from_buffer, NULL);
+    sem_init(&buffer.items, 0, 0);  
+    sem_init(&buffer.slots, 0, BUFFER_SIZE);
+    sem_init(&buffer.count, 0, 1);
+    pthread_create(&buffer.thread, NULL, retrive_from_buffer, NULL);
 }
 
 void start_machines() {
     for(int i = 0; i < NUM_MACH; i++) {
-        pthread_join(machine_threads[i], NULL);
+        pthread_join(machines[i].thread, NULL);
     }
 }
 
 void start_robot() {
-    pthread_join(robot_t, NULL);
+    pthread_join(robot.thread, NULL);
 }
 
 void start_buffer() {
-    pthread_join(buffer_t, NULL);
+    pthread_join(buffer.thread, NULL);
 }
 
 int main() {   
