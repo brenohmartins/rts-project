@@ -6,70 +6,59 @@
 #include <time.h>
 
 #define BUFFER_SIZE 2
+#define NUM_MACH 2
 
-sem_t M1_ready, M1_empty; 
-sem_t M2_ready, M2_empty;
+typedef struct{
+    int id;
+    sem_t ready;
+    sem_t empty;
+} Machine;
+
+Machine machines[NUM_MACH];
+pthread_t machine_threads[NUM_MACH];
+pthread_t robot_t, buffer_t;
+
+sem_t robot;
 sem_t B_items, B_slots;
 sem_t B_count;
 
-// Shared resources
-int P1 = 0;
-int P2 = 1;
-int buffer_count = 0; // The counter replacing the array
+int buffer_count = 0;
 
-void *feed_machine_1(void *arg) {
-    while (1) {
-        sem_wait(&M1_empty);
-        printf("[MACHINE 1] Processing Piece %d...\n", P1);
+void *feed_machine(void *arg) {
+    Machine *m = (Machine *)arg;
+    
+    while(1) {
+        sem_wait(&m->empty);
+        printf("[MACHINE %d] Processing...\n", m->id);
         usleep(rand() % 1000001);
-        printf("[MACHINE 1] Ready, waiting robot...\n");
-        sem_post(&M1_ready); 
-    }
-}
-
-void *feed_machine_2(void *arg) {
-    while (1) {
-        sem_wait(&M2_empty);
-        printf("[MACHINE 2] Processing Piece %d...\n", P2);
-        usleep(rand() % 1000001);
-        printf("[MACHINE 2] Ready, waiting robot...\n");
-        sem_post(&M2_ready); 
+        printf("[MACHINE %d] Waiting robot...\n", m->id);
+        sem_post(&m->ready);
     }
 }
 
 void *get_piece_from_machines(void *arg) {
-    int piece_on_robot = -1; 
-    while (1){
-        if (sem_trywait(&M1_ready) == 0 && piece_on_robot == -1) { // If machine has a piece
-            sem_wait(&B_slots); // Wait for buffer to have a slot
-
-            piece_on_robot = P1; // Get piece
-            printf("[ROBOT] Retrieved Piece %d on Machine 1\n", P1);
-            P1 += 2; // Next piece on machine will have this index
-            sem_post(&M1_empty); // Machine is now free for a new piece
-
-        } 
-        else if (sem_trywait(&M2_ready) == 0 && piece_on_robot == -1) { // If machine has a piece
-            sem_wait(&B_slots); // Wait for buffer to have a slot
-
-            piece_on_robot = P2; // Get piece
-            printf("[ROBOT] Retrieved Piece %d on Machine 2\n", P2);
-            P2 += 2; // Next piece on machine will have this index
-            sem_post(&M2_empty); // Machine is now free for a new piece
-
-        } else {
-            printf("[ROBOT] No pieces available! Waiting...\n");
+    while (1) {
+        sem_wait(&robot);
+  
+        int got_piece = 0;
+        for(int i = 0; i < NUM_MACH && !got_piece; i++) {
+            if(sem_trywait(&machines[i].ready) == 0) {
+                printf("[ROBOT] Retrieved piece from Machine %d\n", machines[i].id);
+                sem_post(&machines[i].empty);
+                got_piece = 1;
+            }
         }
-
-        if (piece_on_robot != -1) { // If robot has a piece (a slot will be already available)
-            sem_wait(&B_count); // Lock counter
+        
+        if(got_piece) {
+            sem_wait(&B_slots);
+            sem_wait(&B_count);
             buffer_count++;
-            printf("[ROBOT] Added piece to buffer. Current items: %d\n", buffer_count);
-            piece_on_robot = -1; // Robot is free
-            sem_post(&B_count); // Unlock counter
-            sem_post(&B_items); // Increase available items for consumer
+            printf("[ROBOT] Added piece to buffer. Current Items: %d\n", buffer_count);
+            sem_post(&B_count);
+            sem_post(&B_items);
         }
-        usleep(100000); 
+        
+        sem_post(&robot);
     }
 }
 
@@ -89,24 +78,54 @@ void *retrive_from_buffer(void *arg) {
     }
 }
 
+void create_machines() {
+    for (int i = 0; i < NUM_MACH; i++){
+        machines[i].id = i;
+
+        // Allow only 1 piece per machine
+        sem_init(&machines[i].ready, 0, 0);
+        sem_init(&machines[i].empty, 0, 1); 
+
+        pthread_create(&machine_threads[i], NULL, feed_machine, &machines[i]);
+    }
+}
+
+void create_robot() {
+    sem_init(&robot, 0, 1);
+    pthread_create(&robot_t, NULL, get_piece_from_machines, NULL);
+}
+
+void create_buffer() {
+    sem_init(&B_items, 0, 0);  
+    sem_init(&B_slots, 0, BUFFER_SIZE);
+    sem_init(&B_count, 0, 1);
+    pthread_create(&buffer_t, NULL, retrive_from_buffer, NULL);
+}
+
+void start_machines() {
+    for(int i = 0; i < NUM_MACH; i++) {
+        pthread_join(machine_threads[i], NULL);
+    }
+}
+
+void start_robot() {
+    pthread_join(robot_t, NULL);
+}
+
+void start_buffer() {
+    pthread_join(buffer_t, NULL);
+}
+
 int main() {   
     srand(time(NULL));
 
-    sem_init(&M1_ready, 0, 0); sem_init(&M1_empty, 0, 1); // Only allow 1 piece
-    sem_init(&M2_ready, 0, 0); sem_init(&M2_empty, 0, 1); // Only allow 1 piece
-    sem_init(&B_items, 0, 0);  sem_init(&B_slots, 0, BUFFER_SIZE); // Only allow BUFFER_SIZE pieces
-    sem_init(&B_count, 0, 1); // Initialize counter mutex
+    create_machines();
+    create_robot();
+    create_buffer();
 
-    pthread_t machine_1_t, machine_2_t, robot_t, buffer_t;
-    pthread_create(&machine_1_t, NULL, feed_machine_1, NULL);
-    pthread_create(&machine_2_t, NULL, feed_machine_2, NULL);
-    pthread_create(&robot_t, NULL, get_piece_from_machines, NULL);
-    pthread_create(&buffer_t, NULL, retrive_from_buffer, NULL);
-
-    pthread_join(machine_1_t, NULL);
-    pthread_join(machine_2_t, NULL);
-    pthread_join(robot_t, NULL);
-    pthread_join(buffer_t, NULL);
+    start_machines();
+    start_robot();
+    start_buffer();
 
     return 0;
 }
