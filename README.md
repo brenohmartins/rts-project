@@ -81,16 +81,24 @@ Exemplo de log com a lógica de fila:
 Abaixo, estão os diagramas de estados referentes aos componentes do sistema: as máquinas, o robô industrial e o buffer de saída, respectivamente.
 
 <div align = "center">
-<img src = "[https://github.com/user-attachments/assets/93351a61-8021-4028-b09c-41075f68e33c](https://github.com/user-attachments/assets/93351a61-8021-4028-b09c-41075f68e33c)" width = "500px" />
+
+<img src = "https://github.com/user-attachments/assets/93351a61-8021-4028-b09c-41075f68e33c" width = "500px" />
+
 </div>
 
-<div align = "center">
-<img src = "[https://github.com/user-attachments/assets/9a5f3699-ea2d-4b2d-9963-7c8ac2406e72](https://github.com/user-attachments/assets/9a5f3699-ea2d-4b2d-9963-7c8ac2406e72)" width = "500px" />
-</div>
 
 <div align = "center">
-<img src = "[https://github.com/user-attachments/assets/5582ef57-cf72-4f67-91f7-67b529f4b586](https://github.com/user-attachments/assets/5582ef57-cf72-4f67-91f7-67b529f4b586)" width = "500px" />
+
+<img src = "https://github.com/user-attachments/assets/9a5f3699-ea2d-4b2d-9963-7c8ac2406e72" width = "500px" />
+
 </div>
+
+
+<div align = "center">
+
+<img src = "https://github.com/user-attachments/assets/5582ef57-cf72-4f67-91f7-67b529f4b586" width = "500px" />
+
+</div> 
 
 #### Vídeo Explicativo
 
