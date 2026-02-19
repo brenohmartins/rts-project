@@ -37,6 +37,7 @@ void *feed_machine(void *arg) {
         usleep(rand() % 1000001);
         printf("[MACHINE %d] Waiting robot...\n", machine->id);
         sem_post(&machine->ready);
+        sem_post(&robot.ready);
     }
 }
 
@@ -61,8 +62,6 @@ void *get_piece_from_machines(void *arg) {
             sem_post(&buffer.count);
             sem_post(&buffer.items);
         }
-        
-        sem_post(&robot.ready);
     }
 }
 
@@ -94,7 +93,7 @@ void create_machines() {
 }
 
 void create_robot() {
-    sem_init(&robot.ready, 0, 1);
+    sem_init(&robot.ready, 0, 0);
     pthread_create(&robot.thread, NULL, get_piece_from_machines, NULL);
 }
 
